@@ -1,0 +1,349 @@
+// Source of truth for the designed V1 schema is maintained here.
+// Paste the finalized DBML from the project design discussion into this file.
+// This placeholder keeps the project structure ready for the exact DBML artifact.
+Enum user_role {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+Enum order_status {
+  PENDING_PAYMENT
+  PAID
+  PROCESSING
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+Enum payment_provider {
+  MPESA
+  STRIPE
+}
+
+Enum payment_method {
+  MPESA_STK
+  CARD
+}
+
+Enum payment_status {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REFUND_PENDING
+  REFUNDED
+}
+
+Enum delivery_status {
+  PENDING
+  PROCESSING
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+}
+
+Table users {
+  id uuid [pk]
+  email varchar(255) [not null, unique]
+  password varchar [not null]
+  first_name varchar(100) [not null]
+  last_name varchar(100) [not null]
+  phone varchar(20)
+  role user_role [not null, default: 'CUSTOMER']
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  indexes {
+    email
+    role
+  }
+}
+
+Table addresses {
+  id uuid [pk]
+  user_id uuid [not null]
+  label varchar(50) [not null]
+  recipient_name varchar(150) [not null]
+  phone varchar(20) [not null]
+  address_line varchar(255) [not null]
+  city varchar(100) [not null]
+  county varchar(100) [not null]
+  postal_code varchar(20)
+  is_default boolean [not null, default: false]
+  deleted_at timestamp
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  indexes {
+    user_id
+    (user_id, is_default)
+  }
+}
+
+Table categories {
+  id uuid [pk]
+  name varchar(100) [not null, unique]
+  slug varchar(120) [not null, unique]
+  description text
+  image_url varchar
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  indexes {
+    is_active
+  }
+}
+
+Table products {
+  id uuid [pk]
+  category_id uuid [not null]
+  name varchar(200) [not null]
+  slug varchar(220) [not null, unique]
+  description text [not null]
+  short_description varchar(500)
+  base_price decimal(12,2) [not null]
+  brand varchar(100)
+  material varchar(100)
+  style varchar(100)
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  indexes {
+    category_id
+    is_active
+    brand
+    material
+    style
+  }
+}
+
+Table product_images {
+  id uuid [pk]
+  product_id uuid [not null]
+  image_url varchar [not null]
+  alt_text varchar(255)
+  sort_order integer [not null, default: 0]
+  is_primary boolean [not null, default: false]
+  created_at timestamp [not null]
+
+  indexes {
+    product_id
+    (product_id, sort_order)
+  }
+}
+
+Table product_variants {
+  id uuid [pk]
+  product_id uuid [not null]
+  sku varchar(100) [not null, unique]
+  color varchar(50)
+  size varchar(50)
+  price decimal(12,2) [not null]
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  indexes {
+    product_id
+    is_active
+  }
+}
+
+Table inventory {
+  id uuid [pk]
+  variant_id uuid [not null, unique]
+  quantity integer [not null, default: 0]
+  reserved_quantity integer [not null, default: 0]
+  reorder_level integer [not null, default: 0]
+  updated_at timestamp [not null]
+
+  indexes {
+    variant_id
+  }
+}
+
+Table carts {
+  id uuid [pk]
+  user_id uuid [not null, unique]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table cart_items {
+  id uuid [pk]
+  cart_id uuid [not null]
+  variant_id uuid [not null]
+  quantity integer [not null]
+  added_at timestamp [not null]
+
+  indexes {
+    (cart_id, variant_id) [unique]
+    variant_id
+  }
+}
+
+Table wishlist_items {
+  id uuid [pk]
+  user_id uuid [not null]
+  product_id uuid [not null]
+  created_at timestamp [not null]
+
+  indexes {
+    (user_id, product_id) [unique]
+    product_id
+  }
+}
+
+Table orders {
+  id uuid [pk]
+  order_number varchar(30) [not null, unique]
+  user_id uuid [not null]
+  created_by_id uuid
+  status order_status [not null, default: 'PENDING_PAYMENT']
+
+  subtotal decimal(12,2) [not null]
+  delivery_fee decimal(12,2) [not null]
+  total decimal(12,2) [not null]
+
+  shipping_name varchar(150) [not null]
+  shipping_phone varchar(20) [not null]
+  shipping_address varchar(255) [not null]
+  shipping_city varchar(100) [not null]
+  shipping_county varchar(100) [not null]
+  shipping_postal_code varchar(20)
+
+  reservation_expires_at timestamp
+
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  indexes {
+    user_id
+    created_by_id
+    status
+    created_at
+  }
+}
+
+Table order_items {
+  id uuid [pk]
+  order_id uuid [not null]
+  product_id uuid
+  variant_id uuid
+
+  product_name varchar(200) [not null]
+  sku varchar(100) [not null]
+  unit_price decimal(12,2) [not null]
+  quantity integer [not null]
+  subtotal decimal(12,2) [not null]
+
+  indexes {
+    order_id
+    product_id
+    variant_id
+  }
+}
+
+Table payments {
+  id uuid [pk]
+  order_id uuid [not null]
+  provider payment_provider [not null]
+  method payment_method [not null]
+  status payment_status [not null, default: 'PENDING']
+
+  amount decimal(12,2) [not null]
+
+  transaction_reference varchar(100) [unique]
+  provider_reference varchar(150)
+
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  indexes {
+    order_id
+    status
+    provider_reference
+  }
+}
+
+Table deliveries {
+  id uuid [pk]
+  order_id uuid [not null, unique]
+  method varchar(50) [not null]
+  status delivery_status [not null, default: 'PENDING']
+  tracking_number varchar(100) [unique]
+  estimated_delivery_date date
+  delivered_at timestamp
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  indexes {
+    status
+    tracking_number
+  }
+}
+
+Table reviews {
+  id uuid [pk]
+  user_id uuid [not null]
+  product_id uuid [not null]
+  rating integer [not null]
+  title varchar(150)
+  comment text
+  is_approved boolean [not null, default: false]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  indexes {
+    (user_id, product_id) [unique]
+    product_id
+    rating
+  }
+}
+
+
+// Relationships
+
+Ref: addresses.user_id > users.id
+
+Ref: products.category_id > categories.id
+
+Ref: product_images.product_id > products.id
+
+Ref: product_variants.product_id > products.id
+
+Ref: inventory.variant_id - product_variants.id
+
+Ref: carts.user_id - users.id
+
+Ref: cart_items.cart_id > carts.id
+
+Ref: cart_items.variant_id > product_variants.id
+
+Ref: wishlist_items.user_id > users.id
+
+Ref: wishlist_items.product_id > products.id
+
+Ref: orders.user_id > users.id
+
+Ref: orders.created_by_id > users.id
+
+Ref: order_items.order_id > orders.id
+
+Ref: order_items.product_id > products.id
+
+Ref: order_items.variant_id > product_variants.id
+
+Ref: payments.order_id > orders.id
+
+Ref: deliveries.order_id - orders.id
+
+Ref: reviews.user_id > users.id
+
+Ref: reviews.product_id > products.id

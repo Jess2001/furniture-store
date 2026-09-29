@@ -1,0 +1,28 @@
+# Environment variables
+.env
+
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache / build artefacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Django local artefacts
+staticfiles/
+media/
+
+# OS files
+.DS_Store
+
+# IDE/editor files
+.vscode/
+.idea/
