@@ -23,9 +23,12 @@ class Category(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    image_url = models.URLField(max_length=500, blank=True)
+
+    sort_order = models.PositiveIntegerField(default=0)
     class Meta:
         verbose_name_plural = "Categories"
-        ordering = ["name"]
+        ordering = ["sort_order", "name"]
     def __str__(self):
         return self.name
 
@@ -65,6 +68,9 @@ class Product(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_featured = models.BooleanField(default=False)
+
+    badge = models.CharField(max_length=30, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -144,7 +150,10 @@ class ProductVariant(models.Model):
         max_length=100,
         blank=True,
     )
-
+    color_hex = models.CharField(
+        max_length=7,
+        blank=True,
+    )
     dimensions = models.CharField(
         max_length=255,
         blank=True,
@@ -154,7 +163,12 @@ class ProductVariant(models.Model):
         max_digits=12,
         decimal_places=2,
     )
-
+    compare_at_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
     is_active = models.BooleanField(default=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -179,6 +193,17 @@ class ProductVariant(models.Model):
                     "SKU must use uppercase letters and digits separated by "
                     "single hyphens, e.g. OSLO-L-GRY."
                 ),
+            ),
+            models.CheckConstraint(
+                condition=models.Q(compare_at_price__isnull=True)
+                | models.Q(compare_at_price__gt=models.F("price")),
+                name="variant_compare_at_gt_price",
+                violation_error_message="Compare-at price must be higher than the price.",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(color_hex__regex=r"^(#[0-9A-Fa-f]{6})?$"),
+                name="variant_color_hex_format",
+                violation_error_message="Colour must be blank or a hex code like #E3DDD1.",
             ),
         ]
 

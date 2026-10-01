@@ -39,7 +39,8 @@ class ProductVariantInline(admin.TabularInline):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "is_active")
+    list_display = ("name", "slug", "sort_order", "is_active")
+    list_editable = ("sort_order",)
     list_filter = ("is_active",)
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
@@ -47,8 +48,9 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "category", "status", "created_at")
-    list_filter = ("status", "category")
+    list_display = ("name", "category", "status", "is_featured", "created_at")
+    list_editable = ("is_featured",)
+    list_filter = ("status", "is_featured", "category")
     list_select_related = ("category",)
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
