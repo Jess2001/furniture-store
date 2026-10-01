@@ -51,10 +51,15 @@ class CartItem(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        ordering = ["created_at", "id"]
         constraints = [
             models.UniqueConstraint(
                 fields=["cart", "variant"],
                 name="unique_variant_per_cart",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quantity__gte=1),
+                name="cart_item_quantity_gte_one",
             ),
         ]
 
