@@ -1,4 +1,4 @@
-from django.db.models import F, Min, Prefetch, Q, Sum
+from django.db.models import Count, F, Min, Prefetch, Q, Sum
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny
 
@@ -12,12 +12,23 @@ from .serializers import (
 
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Category.objects.filter(is_active=True)
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
     authentication_classes = []
     pagination_class = None
     lookup_field = "slug"
+
+    def get_queryset(self):
+        return (
+            Category.objects.filter(is_active=True)
+            .annotate(
+                product_count=Count(
+                    "products",
+                    filter=Q(products__status=Product.Status.ACTIVE),
+                )
+            )
+            .order_by("sort_order", "name")
+        )
 
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
@@ -29,13 +40,21 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ["price_from", "created_at", "name"]
 
     def get_queryset(self):
-        queryset = (
+        return (
             Product.objects.filter(
                 status=Product.Status.ACTIVE,
                 category__is_active=True,
             )
             .select_related("category")
-            .prefetch_related("images")
+            .prefetch_related(
+                "images",
+                Prefetch(
+                    "variants",
+                    queryset=ProductVariant.objects.filter(is_active=True)
+                    .select_related("inventory")
+                    .order_by("price", "sku"),
+                ),
+            )
             .annotate(
                 price_from=Min("variants__price", filter=Q(variants__is_active=True)),
                 available_total=Sum(
@@ -46,16 +65,6 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
             )
             .order_by("-created_at", "id")
         )
-        if self.action == "retrieve":
-            queryset = queryset.prefetch_related(
-                Prefetch(
-                    "variants",
-                    queryset=ProductVariant.objects.filter(
-                        is_active=True
-                    ).select_related("inventory"),
-                )
-            )
-        return queryset
 
     def filter_queryset(self, queryset):
         queryset = super().filter_queryset(queryset)

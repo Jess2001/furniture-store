@@ -8,6 +8,7 @@ class ProductFilter(django_filters.FilterSet):
     category = django_filters.CharFilter(field_name="category__slug")
     min_price = django_filters.NumberFilter(field_name="price_from", lookup_expr="gte")
     max_price = django_filters.NumberFilter(field_name="price_from", lookup_expr="lte")
+    featured = django_filters.BooleanFilter(field_name="is_featured")
     in_stock = django_filters.BooleanFilter(method="filter_in_stock")
     # color and material are applied together in filter_queryset below
     color = django_filters.CharFilter(method="skip")
@@ -15,7 +16,15 @@ class ProductFilter(django_filters.FilterSet):
 
     class Meta:
         model = Product
-        fields = ["category", "min_price", "max_price", "in_stock", "color", "material"]
+        fields = [
+            "category",
+            "min_price",
+            "max_price",
+            "featured",
+            "in_stock",
+            "color",
+            "material",
+        ]
 
     def skip(self, queryset, name, value):
         return queryset

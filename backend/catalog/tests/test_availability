@@ -18,13 +18,26 @@ def slugs(response):
     return [item["slug"] for item in response.json()["results"]]
 
 
-def test_variant_shows_available_quantity_net_of_reservations(api_client, make_product):
+def test_variant_stock_status_is_net_of_reservations(api_client, make_product):
     product = make_product("Oslo Sofa", prices=(100,))
     stock(product.variants.get(), quantity=10, reserved=3)
 
     variant = api_client.get(f"{PRODUCTS}oslo-sofa/").json()["variants"][0]
 
-    assert variant["available_quantity"] == 7
+    assert variant["stock_status"] == "in_stock"
+    assert variant["in_stock"] is True
+    assert variant["low_stock_count"] is None
+    assert "available_quantity" not in variant  # exact stock is not public
+
+
+def test_low_stock_reveals_the_remaining_count(api_client, make_product):
+    product = make_product("Oslo Sofa", prices=(100,))
+    stock(product.variants.get(), quantity=5, reserved=2)
+
+    variant = api_client.get(f"{PRODUCTS}oslo-sofa/").json()["variants"][0]
+
+    assert variant["stock_status"] == "low_stock"
+    assert variant["low_stock_count"] == 3
     assert variant["in_stock"] is True
 
 
@@ -34,18 +47,39 @@ def test_fully_reserved_variant_is_out_of_stock(api_client, make_product):
 
     variant = api_client.get(f"{PRODUCTS}oslo-sofa/").json()["variants"][0]
 
-    assert variant["available_quantity"] == 0
+    assert variant["stock_status"] == "out_of_stock"
     assert variant["in_stock"] is False
+    assert variant["low_stock_count"] is None
 
 
-def test_variant_without_inventory_row_counts_as_zero(api_client, make_product):
-    product = make_product("Oslo Sofa", prices=(100,))
+def test_variant_without_inventory_row_counts_as_out_of_stock(api_client, make_product):
+    make_product("Oslo Sofa", prices=(100,))
     Inventory.objects.all().delete()
 
     variant = api_client.get(f"{PRODUCTS}oslo-sofa/").json()["variants"][0]
 
-    assert variant["available_quantity"] == 0
+    assert variant["stock_status"] == "out_of_stock"
     assert variant["in_stock"] is False
+
+
+def test_product_stock_status_sums_all_active_variants(api_client, make_product):
+    product = make_product("Oslo Sofa", prices=(100, 200))
+    grey, beige = product.variants.order_by("sku")
+    stock(grey, quantity=3)
+    stock(beige, quantity=4)  # 7 in total: each variant is low, the product is not
+
+    item = api_client.get(PRODUCTS).json()["results"][0]
+
+    assert item["stock_status"] == "in_stock"
+    assert item["low_stock_count"] is None
+
+    stock(grey, quantity=2)
+    stock(beige, quantity=1)  # 3 in total
+
+    item = api_client.get(PRODUCTS).json()["results"][0]
+
+    assert item["stock_status"] == "low_stock"
+    assert item["low_stock_count"] == 3
 
 
 def test_product_in_stock_if_any_active_variant_is_available(api_client, make_product):
