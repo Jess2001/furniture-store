@@ -23,11 +23,20 @@ class Category(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name_plural = "Categories"
+        ordering = ["name"]
     def __str__(self):
         return self.name
 
 
 class Product(models.Model):
+
+    class Status(models.TextChoices):
+        INACTIVE = "INACTIVE", "Inactive"
+        ACTIVE = "ACTIVE", "Active"
+        ARCHIVED = "ARCHIVED", "Archived"
+
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -49,16 +58,16 @@ class Product(models.Model):
 
     description = models.TextField(blank=True)
 
-    is_active = models.BooleanField(default=True)
-
-    archived_at = models.DateTimeField(
-        null=True,
-        blank=True,
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.INACTIVE,
     )
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        ordering = ["-created_at"]
     def __str__(self):
         return self.name
 
@@ -91,6 +100,13 @@ class ProductImage(models.Model):
 
     class Meta:
         ordering = ["sort_order", "created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product"],
+                condition=models.Q(is_primary=True),
+                name="one_primary_image_per_product",
+            ),
+        ]
 
     def __str__(self):
         return f"Image for {self.product.name}"
@@ -105,7 +121,7 @@ class ProductVariant(models.Model):
 
     product = models.ForeignKey(
         Product,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="variants",
     )
 
@@ -149,6 +165,20 @@ class ProductVariant(models.Model):
             models.CheckConstraint(
                 condition=models.Q(price__gte=0),
                 name="variant_price_gte_zero",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(price__gte=0),
+                name="variant_price_gte_zero",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(sku__regex=r"^[A-Z0-9]+(-[A-Z0-9]+)*$"),
+                name="variant_sku_format",
+                violation_error_message=(
+                    "SKU must use uppercase letters and digits separated by "
+                    "single hyphens, e.g. OSLO-L-GRY."
+                ),
             ),
         ]
 

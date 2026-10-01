@@ -1,0 +1,113 @@
+import pytest
+
+from catalog.models import ProductVariant
+from inventory.models import Inventory
+
+pytestmark = pytest.mark.django_db
+
+PRODUCTS = "/api/v1/products/"
+
+
+def stock(variant, quantity, reserved=0):
+    Inventory.objects.filter(variant=variant).update(
+        quantity=quantity, reserved_quantity=reserved
+    )
+
+
+def slugs(response):
+    return [item["slug"] for item in response.json()["results"]]
+
+
+def test_variant_shows_available_quantity_net_of_reservations(api_client, make_product):
+    product = make_product("Oslo Sofa", prices=(100,))
+    stock(product.variants.get(), quantity=10, reserved=3)
+
+    variant = api_client.get(f"{PRODUCTS}oslo-sofa/").json()["variants"][0]
+
+    assert variant["available_quantity"] == 7
+    assert variant["in_stock"] is True
+
+
+def test_fully_reserved_variant_is_out_of_stock(api_client, make_product):
+    product = make_product("Oslo Sofa", prices=(100,))
+    stock(product.variants.get(), quantity=5, reserved=5)
+
+    variant = api_client.get(f"{PRODUCTS}oslo-sofa/").json()["variants"][0]
+
+    assert variant["available_quantity"] == 0
+    assert variant["in_stock"] is False
+
+
+def test_variant_without_inventory_row_counts_as_zero(api_client, make_product):
+    product = make_product("Oslo Sofa", prices=(100,))
+    Inventory.objects.all().delete()
+
+    variant = api_client.get(f"{PRODUCTS}oslo-sofa/").json()["variants"][0]
+
+    assert variant["available_quantity"] == 0
+    assert variant["in_stock"] is False
+
+
+def test_product_in_stock_if_any_active_variant_is_available(api_client, make_product):
+    product = make_product("Oslo Sofa", prices=(100, 200))
+    grey, beige = product.variants.order_by("sku")
+    stock(grey, quantity=0)
+    stock(beige, quantity=2)
+
+    assert api_client.get(PRODUCTS).json()["results"][0]["in_stock"] is True
+    assert api_client.get(f"{PRODUCTS}oslo-sofa/").json()["in_stock"] is True
+
+
+def test_inactive_variant_stock_does_not_make_product_in_stock(api_client, make_product):
+    product = make_product("Oslo Sofa", prices=(100,))
+    variant = product.variants.get()
+    stock(variant, quantity=9)
+    ProductVariant.objects.filter(pk=variant.pk).update(is_active=False)
+
+    assert api_client.get(PRODUCTS).json()["results"][0]["in_stock"] is False
+
+
+def test_in_stock_filter(api_client, make_product):
+    have = make_product("Have Sofa", prices=(100,))
+    stock(have.variants.get(), quantity=3)
+    make_product("Empty Sofa", prices=(100,))
+    make_product("Bare Sofa", prices=())
+
+    assert slugs(api_client.get(PRODUCTS, {"in_stock": "true"})) == ["have-sofa"]
+    assert sorted(slugs(api_client.get(PRODUCTS, {"in_stock": "false"}))) == ["bare-sofa", "empty-sofa"]
+
+
+def test_color_and_material_filters_match_the_same_variant(api_client, make_product):
+    product = make_product("Oslo Sofa", prices=(100, 200))
+    grey, beige = product.variants.order_by("sku")
+    ProductVariant.objects.filter(pk=grey.pk).update(color="Grey", material="Linen")
+    ProductVariant.objects.filter(pk=beige.pk).update(color="Beige", material="Leather")
+    other = make_product("Milan Sofa", prices=(50,))
+    ProductVariant.objects.filter(product=other).update(color="Black", material="Linen")
+
+    assert slugs(api_client.get(PRODUCTS, {"color": "beige"})) == ["oslo-sofa"]
+    assert sorted(slugs(api_client.get(PRODUCTS, {"material": "LINEN"}))) == ["milan-sofa", "oslo-sofa"]
+    # Oslo has a beige variant and a linen variant, but no beige LINEN variant
+    assert slugs(api_client.get(PRODUCTS, {"color": "beige", "material": "linen"})) == []
+    assert slugs(api_client.get(PRODUCTS, {"color": "beige", "material": "leather"})) == ["oslo-sofa"]
+
+
+def test_color_filter_does_not_duplicate_or_inflate_results(api_client, make_product):
+    product = make_product("Oslo Sofa", prices=(100, 200, 300))
+    for variant in product.variants.all():
+        ProductVariant.objects.filter(pk=variant.pk).update(color="Grey")
+        stock(variant, quantity=4)
+
+    response = api_client.get(PRODUCTS, {"color": "grey"})
+
+    assert response.json()["count"] == 1
+    assert response.json()["results"][0]["price_from"] == "100.00"
+
+
+def test_detail_query_count_stays_flat(api_client, make_product, django_assert_max_num_queries):
+    product = make_product("Oslo Sofa", prices=(100, 200, 300, 400))
+    for variant in product.variants.all():
+        stock(variant, quantity=2)
+
+    with django_assert_max_num_queries(4):
+        assert api_client.get(f"{PRODUCTS}oslo-sofa/").status_code == 200
