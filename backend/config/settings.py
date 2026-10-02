@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 from datetime import timedelta
+from decimal import Decimal
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -117,3 +118,6 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
+# Orders
+SHIPPING_FLAT_FEE = Decimal(os.getenv("SHIPPING_FLAT_FEE", "0.00"))
+ORDER_RESERVATION_MINUTES = int(os.getenv("ORDER_RESERVATION_MINUTES", "30"))
