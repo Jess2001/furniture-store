@@ -34,6 +34,11 @@ class Order(models.Model):
         blank=True,
         related_name="created_orders",
     )
+    order_number = models.CharField(
+        max_length=20,
+        unique=True,
+        editable=False,
+    )
 
     status = models.CharField(
         max_length=30,
@@ -87,7 +92,11 @@ class Order(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    # While the order waits for payment, its stock stays reserved until this moment.
+    reservation_expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
     cancelled_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -95,6 +104,10 @@ class Order(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+        indexes = [
+            models.Index(fields=["user", "-created_at"], name="order_user_created_idx"),
+        ]
 
         constraints = [
             models.CheckConstraint(
@@ -109,10 +122,23 @@ class Order(models.Model):
                 condition=models.Q(total_amount__gte=0),
                 name="order_total_gte_zero",
             ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    total_amount=models.F("subtotal") + models.F("shipping_fee")
+                ),
+                name="order_total_equals_subtotal_plus_shipping",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(status="CANCELLED", cancelled_at__isnull=False)
+                    | (~models.Q(status="CANCELLED") & models.Q(cancelled_at__isnull=True))
+                ),
+                name="order_cancelled_at_matches_status",
+            ),
         ]
 
     def __str__(self):
-        return str(self.id)
+        return self.order_number
 
 
 class OrderItem(models.Model):
@@ -180,6 +206,12 @@ class OrderItem(models.Model):
                 condition=models.Q(line_total__gte=0),
                 name="order_item_line_total_gte_zero",
             ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    line_total=models.F("quantity") * models.F("unit_price")
+                ),
+                name="order_item_line_total_equals_qty_times_price",
+            ),
         ]
 
     def __str__(self):
@@ -187,14 +219,7 @@ class OrderItem(models.Model):
 
 
 class Delivery(models.Model):
-    class Status(models.TextChoices):
-        PENDING = "PENDING", "Pending"
-        PROCESSING = "PROCESSING", "Processing"
-        SHIPPED = "SHIPPED", "Shipped"
-        OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY", "Out for Delivery"
-        DELIVERED = "DELIVERED", "Delivered"
-        FAILED = "FAILED", "Failed"
-
+    
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -205,12 +230,6 @@ class Delivery(models.Model):
         Order,
         on_delete=models.CASCADE,
         related_name="delivery",
-    )
-
-    status = models.CharField(
-        max_length=30,
-        choices=Status.choices,
-        default=Status.PENDING,
     )
 
     tracking_number = models.CharField(
