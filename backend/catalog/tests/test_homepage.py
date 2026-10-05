@@ -96,13 +96,15 @@ def test_list_includes_compact_variants_cheapest_first(api_client, make_product)
     assert [v["price"] for v in variants] == ["100.00", "200.00", "300.00"]
     assert set(variants[0]) == {
         "id",
+        "name",
         "color",
         "color_hex",
+        "dimensions",
         "price",
         "compare_at_price",
         "in_stock",
     }
-
+   
 
 def test_variant_card_data_includes_swatch_and_compare_at_price(
     api_client, make_product

@@ -4,13 +4,21 @@ from django.db.models import Exists, OuterRef, Q
 from .models import Product, ProductVariant
 
 
+class CharInFilter(django_filters.BaseInFilter, django_filters.CharFilter):
+    """Accepts one value or a comma-separated list: ?category=dining,bedroom"""
+
+
+def split_values(raw):
+    return [value.strip() for value in (raw or "").split(",") if value.strip()]
+
+
 class ProductFilter(django_filters.FilterSet):
-    category = django_filters.CharFilter(field_name="category__slug")
+    category = CharInFilter(field_name="category__slug", lookup_expr="in")
     min_price = django_filters.NumberFilter(field_name="price_from", lookup_expr="gte")
     max_price = django_filters.NumberFilter(field_name="price_from", lookup_expr="lte")
     featured = django_filters.BooleanFilter(field_name="is_featured")
     in_stock = django_filters.BooleanFilter(method="filter_in_stock")
-    # color and material are applied together in filter_queryset below
+    # color and material take comma-separated lists; both are applied together in filter_queryset
     color = django_filters.CharFilter(method="skip")
     material = django_filters.CharFilter(method="skip")
 
@@ -39,16 +47,22 @@ class ProductFilter(django_filters.FilterSet):
     def filter_queryset(self, queryset):
         queryset = super().filter_queryset(queryset)
 
-        lookups = {}
-        if self.form.cleaned_data.get("color"):
-            lookups["color__iexact"] = self.form.cleaned_data["color"]
-        if self.form.cleaned_data.get("material"):
-            lookups["material__iexact"] = self.form.cleaned_data["material"]
+        conditions = Q()
+        for field, raw in (
+            ("color", self.form.cleaned_data.get("color")),
+            ("material", self.form.cleaned_data.get("material")),
+        ):
+            values = split_values(raw)
+            if values:
+                any_of = Q()
+                for value in values:
+                    any_of |= Q(**{f"{field}__iexact": value})  # OR within one facet
+                conditions &= any_of  # AND across facets
 
-        if lookups:
+        if conditions:
             # one subquery, so color AND material must match the SAME variant
             matching = ProductVariant.objects.filter(
-                product=OuterRef("pk"), is_active=True, **lookups
+                conditions, product=OuterRef("pk"), is_active=True
             )
             queryset = queryset.filter(Exists(matching))
         return queryset
