@@ -224,7 +224,7 @@ describe("moving between pages", () => {
 
     expect(currentUrl()).toBe("/#showroom-booking");
     expect(
-      await screen.findByRole("heading", { name: "Visit The Kilima Showroom" }),
+      await screen.findByRole("heading", { name: "Visit The Luxury Showroom" }),
     ).toBeInTheDocument();
   });
 

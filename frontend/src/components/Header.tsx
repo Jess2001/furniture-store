@@ -87,7 +87,7 @@ export function Header() {
         <Link
           className="flex items-center gap-3 shrink-0"
           to="/"
-          aria-label="Kilima Living home"
+          aria-label="Luxury Living home"
         >
           <img
             alt=""
@@ -97,7 +97,7 @@ export function Header() {
           />
           <div className="flex flex-col">
             <span className="font-title text-title tracking-[0.15em] text-on-surface font-semibold uppercase leading-none">
-              KILIMA
+              Luxury
             </span>
             <span className="font-label-caps text-label-caps tracking-[0.25em] text-on-surface-variant uppercase mt-0.5 leading-none">
               LIVING
