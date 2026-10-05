@@ -1,6 +1,10 @@
-from django.db.models import Count, F, Min, Prefetch, Q, Sum
+from decimal import Decimal
+
+from django.db.models import Count, F, Max, Min, Prefetch, Q, Sum
 from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 
 from .filters import ProductFilter
 from .models import Category, Product, ProductVariant
@@ -9,6 +13,11 @@ from .serializers import (
     ProductDetailSerializer,
     ProductListSerializer,
 )
+
+
+def money(value):
+    """Prices go over the wire as strings like "50000.00", never as floats."""
+    return None if value is None else f"{Decimal(str(value)):.2f}"
 
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -37,7 +46,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     lookup_field = "slug"
     filterset_class = ProductFilter
     search_fields = ["name", "description", "category__name"]
-    ordering_fields = ["price_from", "created_at", "name"]
+    ordering_fields = ["price_from", "created_at", "name", "is_featured"]
 
     def get_queryset(self):
         return (
@@ -75,3 +84,40 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == "retrieve":
             return ProductDetailSerializer
         return ProductListSerializer
+
+    @action(detail=False, methods=["get"], pagination_class=None)
+    def facets(self, request):
+        """What the shop sidebar can offer: price range, materials, colours and stock counts."""
+        variants = ProductVariant.objects.filter(
+            is_active=True,
+            product__status=Product.Status.ACTIVE,
+            product__category__is_active=True,
+        )
+        price = variants.aggregate(min=Min("price"), max=Max("price"))
+        materials = (
+            variants.exclude(material="")
+            .values("material")
+            .annotate(count=Count("product", distinct=True))
+            .order_by("-count", "material")
+        )
+        colors = (
+            variants.exclude(color="")
+            .values("color", "color_hex")
+            .annotate(count=Count("product", distinct=True))
+            .order_by("-count", "color")
+        )
+        return Response(
+            {
+                "price": {"min": money(price["min"]), "max": money(price["max"])},
+                "materials": [
+                    {"name": m["material"], "count": m["count"]} for m in materials
+                ],
+                "colors": [
+                    {"name": c["color"], "hex": c["color_hex"], "count": c["count"]}
+                    for c in colors
+                ],
+                "in_stock_count": self.get_queryset()
+                .filter(available_total__gt=0)
+                .count(),
+            }
+        )

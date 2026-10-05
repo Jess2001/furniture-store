@@ -34,7 +34,10 @@ class VariantSummarySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductVariant
-        fields = ["id", "color", "color_hex", "price", "compare_at_price", "in_stock"]
+        fields = [
+            "id", "name", "color", "color_hex", "dimensions",
+            "price", "compare_at_price", "in_stock",
+        ]
 
     def get_in_stock(self, variant):
         return variant_available(variant) > 0
