@@ -6,3 +6,6 @@ pytest==8.4.*
 pytest-django==4.11.*
 djangorestframework-simplejwt==5.5.*
 django-filter==25.*
+gunicorn==23.*
+whitenoise==6.*
+dj-database-url>=2.3,<4
