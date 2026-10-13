@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthContext";
 import { useCartActions } from "../cart/useCart";
@@ -6,7 +7,13 @@ import { Icon } from "../components/Icon";
 import { designImages } from "../content/images";
 import { useUi } from "../hooks/UiContext";
 import { errorMessage } from "../lib/api";
-import { formatKES, pickImage, sizeLabel, stockLabel, swatchLabel } from "../lib/format";
+import {
+  formatKES,
+  pickImage,
+  sizeLabel,
+  stockLabel,
+  swatchLabel,
+} from "../lib/format";
 import type { ProductCardData } from "../lib/types";
 
 const toneClasses = {
@@ -22,15 +29,20 @@ export function ProductCard({ product }: { product: ProductCardData }) {
 
   // variants arrive cheapest first, so the first one is the default
   const [selectedId, setSelectedId] = useState(product.variants[0]?.id);
-  const selected = product.variants.find((v) => v.id === selectedId) ?? product.variants[0];
+  const selected =
+    product.variants.find((v) => v.id === selectedId) ?? product.variants[0];
 
   const swatches = product.variants.filter((v) => v.color_hex);
   const sizes = product.variants.filter((v) => !v.color_hex && v.dimensions);
   const stock = stockLabel(product.stock_status, product.low_stock_count);
   const tone = toneClasses[stock.tone];
 
-  const image = pickImage(product.primary_image?.image_url, designImages.products[product.slug]);
+  const image = pickImage(
+    product.primary_image?.image_url,
+    designImages.products[product.slug],
+  );
   const canBuy = Boolean(selected?.in_stock) && product.in_stock;
+  const href = `/product/${product.slug}`;
 
   const addToCart = () => {
     if (!selected) return;
@@ -55,11 +67,19 @@ export function ProductCard({ product }: { product: ProductCardData }) {
     <article className="group bg-surface-container-lowest border border-surface-variant flex flex-col justify-between transition-all duration-300">
       <div>
         <div className="relative aspect-[4/5] bg-surface-container-low overflow-hidden">
-          <img
-            className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-            alt={product.primary_image?.alt_text || product.name}
-            src={image}
-          />
+          {/* the title below is the accessible link; this one just makes the picture clickable too */}
+          <Link
+            to={href}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="block w-full h-full"
+          >
+            <img
+              className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+              alt={product.primary_image?.alt_text || product.name}
+              src={image}
+            />
+          </Link>
           {product.badge && (
             <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
               <span className="bg-primary-container text-on-primary font-label-caps text-label-caps uppercase px-2 py-0.5 tracking-wider">
@@ -81,13 +101,17 @@ export function ProductCard({ product }: { product: ProductCardData }) {
         <div className="p-4">
           <div className="flex items-center gap-1.5 mb-1.5">
             <span className={`w-2 h-2 rounded-full ${tone.dot}`} />
-            <span className={`font-body-sm text-body-sm font-semibold ${tone.text}`}>{stock.text}</span>
+            <span
+              className={`font-body-sm text-body-sm font-semibold ${tone.text}`}
+            >
+              {stock.text}
+            </span>
           </div>
           <span className="font-label-caps text-label-caps text-secondary uppercase tracking-wider block">
             {product.category.name}
           </span>
           <h3 className="font-title text-title text-on-surface font-semibold mt-0.5 group-hover:text-primary transition-colors">
-            {product.name}
+            <Link to={href}>{product.name}</Link>
           </h3>
 
           <div className="flex items-baseline gap-2 mt-2">
@@ -118,7 +142,9 @@ export function ProductCard({ product }: { product: ProductCardData }) {
                     onClick={() => setSelectedId(variant.id)}
                     style={{ backgroundColor: variant.color_hex }}
                     className={`w-4 h-4 rounded-full border cursor-pointer ${
-                      active ? "border-primary ring-1 ring-primary/40" : "border-surface-variant"
+                      active
+                        ? "border-primary ring-1 ring-primary/40"
+                        : "border-surface-variant"
                     }`}
                   />
                 );
@@ -128,7 +154,9 @@ export function ProductCard({ product }: { product: ProductCardData }) {
 
           {sizes.length > 0 && (
             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-surface-variant">
-              <span className="font-label-caps text-label-caps text-secondary">Size:</span>
+              <span className="font-label-caps text-label-caps text-secondary">
+                Size:
+              </span>
               {sizes.map((variant) => {
                 const active = variant.id === selected?.id;
                 return (
@@ -136,10 +164,16 @@ export function ProductCard({ product }: { product: ProductCardData }) {
                     key={variant.id}
                     type="button"
                     aria-pressed={active}
-                    title={variant.in_stock ? variant.dimensions : `${variant.dimensions} (out of stock)`}
+                    title={
+                      variant.in_stock
+                        ? variant.dimensions
+                        : `${variant.dimensions} (out of stock)`
+                    }
                     onClick={() => setSelectedId(variant.id)}
                     className={`font-label-caps text-label-caps px-1.5 py-0.5 ${
-                      active ? "bg-on-surface text-on-secondary" : "bg-surface-container text-on-surface"
+                      active
+                        ? "bg-on-surface text-on-secondary"
+                        : "bg-surface-container text-on-surface"
                     } ${variant.in_stock ? "" : "line-through opacity-60"}`}
                   >
                     {sizeLabel(variant.dimensions)}
@@ -159,7 +193,11 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           className="w-full h-11 bg-on-surface text-on-secondary hover:bg-primary transition-colors flex items-center justify-center gap-2 font-label-md text-label-md uppercase tracking-wider disabled:opacity-50 disabled:hover:bg-on-surface"
         >
           <Icon name="shopping_bag" className="text-[18px]" />
-          {canBuy ? (add.isPending ? "Adding…" : "Add to Cart") : "Out of Stock"}
+          {canBuy
+            ? add.isPending
+              ? "Adding…"
+              : "Add to Cart"
+            : "Out of Stock"}
         </button>
       </div>
     </article>

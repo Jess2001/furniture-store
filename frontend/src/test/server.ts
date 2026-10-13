@@ -6,6 +6,7 @@ import type {
   Facets,
   Page,
   ProductCardData,
+  ProductDetail,
   User,
 } from "../lib/types";
 
@@ -169,6 +170,78 @@ export const facets: Facets = {
   in_stock_count: 3,
 };
 
+export const maraDetail: ProductDetail = {
+  id: "p1",
+  name: "Mara 3-Seater Linen Sofa",
+  slug: "mara-3-seater-linen-sofa",
+  description:
+    "Deep, hand-upholstered three-seater in heavyweight Belgian linen.",
+  badge: "Best Seller",
+  category: { id: "c1", name: "Living Room", slug: "living-room" },
+  images: [
+    {
+      id: "i1",
+      image_url: "https://cdn.example/mara-front.jpg",
+      alt_text: "Mara sofa, front view",
+      sort_order: 0,
+      is_primary: true,
+    },
+    {
+      id: "i2",
+      image_url: "https://cdn.example/mara-side.jpg",
+      alt_text: "Mara sofa, side view",
+      sort_order: 1,
+      is_primary: false,
+    },
+    {
+      id: "i3",
+      image_url: "https://cdn.example/mara-weave.jpg",
+      alt_text: "Linen weave close-up",
+      sort_order: 2,
+      is_primary: false,
+    },
+  ],
+  variants: [
+    {
+      id: "v-sand",
+      sku: "MARA-SOFA-SAND",
+      name: "Mara Sofa, Sand Linen",
+      material: "Linen",
+      color: "Sand Linen",
+      color_hex: "#E3DDD1",
+      dimensions: "220 x 95 x 85 cm",
+      price: "84500.00",
+      compare_at_price: "92000.00",
+      in_stock: true,
+      stock_status: "low_stock",
+      low_stock_count: 3,
+    },
+    {
+      id: "v-forest",
+      sku: "MARA-SOFA-FOREST",
+      name: "Mara Sofa, Forest",
+      material: "Linen",
+      color: "Forest",
+      color_hex: "#3F5A3A",
+      dimensions: "220 x 95 x 85 cm",
+      price: "88000.00",
+      compare_at_price: "96000.00",
+      in_stock: true,
+      stock_status: "low_stock",
+      low_stock_count: 2,
+    },
+  ],
+  price_from: "84500.00",
+  in_stock: true,
+  stock_status: "low_stock",
+  low_stock_count: 3,
+};
+
+/** the full page for each fake product that has one, by slug */
+export const details: Record<string, ProductDetail> = {
+  [maraDetail.slug]: maraDetail,
+};
+
 /** which material each fake product is made of (the compact card does not carry it) */
 const materialOf: Record<string, string> = {
   p1: "Linen",
@@ -198,6 +271,8 @@ interface ServerOptions {
   products?: ProductCardData[];
   pageSize?: number;
   facets?: Facets;
+  details?: Record<string, ProductDetail>;
+  detailStatus?: number;
 }
 
 /** An in-memory fake of the Django API, enough for the homepage and shop flows. */
@@ -300,6 +375,16 @@ export function createServer(options: ServerOptions = {}) {
 
     if (path === "/categories/") return json(options.categories ?? categories);
     if (path === "/products/facets/") return json(options.facets ?? facets);
+
+    const detailMatch = path.match(/^\/products\/([^/]+)\/$/);
+    if (detailMatch) {
+      if (options.detailStatus && options.detailStatus !== 200)
+        return json({ detail: "boom" }, options.detailStatus);
+      const found = (options.details ?? details)[detailMatch[1]];
+      return found
+        ? json(found)
+        : json({ detail: "No Product matches the given query." }, 404);
+    }
 
     if (path === "/products/") {
       if (options.productsStatus && options.productsStatus !== 200)

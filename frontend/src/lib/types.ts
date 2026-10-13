@@ -99,3 +99,34 @@ export interface Facets {
   colors: { name: string; hex: string; count: number }[];
   in_stock_count: number;
 }
+
+export interface VariantDetail {
+  id: string;
+  sku: string;
+  name: string;
+  material: string;
+  color: string;
+  color_hex: string;
+  dimensions: string;
+  price: string;
+  compare_at_price: string | null;
+  in_stock: boolean;
+  stock_status: StockStatus;
+  low_stock_count: number | null;
+}
+
+/** One product's full page, from GET /products/<slug>/. Variants are cheapest first. */
+export interface ProductDetail {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  badge: string;
+  category: CategorySummary;
+  images: ProductImage[];
+  variants: VariantDetail[];
+  price_from: string | null;
+  in_stock: boolean;
+  stock_status: StockStatus;
+  low_stock_count: number | null;
+}

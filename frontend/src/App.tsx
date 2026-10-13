@@ -6,6 +6,7 @@ import { Header } from "./components/Header";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { Toaster } from "./components/Toaster";
 import { HomePage } from "./pages/HomePage";
+import { ProductPage } from "./pages/ProductPages";
 import { ShopPage } from "./pages/ShopPage";
 import { Footer } from "./sections/Footer";
 
@@ -37,6 +38,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/shop" element={<ShopPage />} />
+          <Route path="/product/:slug" element={<ProductPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

@@ -1,7 +1,13 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
-import { api } from "../lib/api";
-import type { Category, Facets, Page, ProductCardData } from "../lib/types";
+import { api, ApiError } from "../lib/api";
+import type {
+  Category,
+  Facets,
+  Page,
+  ProductCardData,
+  ProductDetail,
+} from "../lib/types";
 
 export function useCategories() {
   return useQuery({
@@ -49,5 +55,16 @@ export function useFacets() {
     queryKey: ["facets"],
     queryFn: () => api<Facets>("/products/facets/", { auth: false }),
     staleTime: 5 * 60_000,
+  });
+}
+
+/** One product by slug. A 404 is an answer, not a glitch, so it is never retried. */
+export function useProduct(slug: string) {
+  return useQuery({
+    queryKey: ["product", slug],
+    queryFn: () => api<ProductDetail>(`/products/${slug}/`, { auth: false }),
+    retry: (failures, error) =>
+      !(error instanceof ApiError && error.status === 404) && failures < 1,
+    staleTime: 60_000,
   });
 }

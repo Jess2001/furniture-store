@@ -25,7 +25,7 @@ export function renderApp(
 ) {
   vi.stubGlobal("fetch", server.fetchMock);
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false, retryDelay: 0 } },
   });
   return render(
     <QueryClientProvider client={queryClient}>
