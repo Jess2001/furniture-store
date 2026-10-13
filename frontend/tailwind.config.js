@@ -56,10 +56,10 @@ export default {
       },
       maxWidth: { "7xl": "none" },
       borderRadius: {
-        DEFAULT: "0.125rem",
-        lg: "0.25rem",
-        xl: "0.5rem",
-        full: "0.75rem",
+        DEFAULT: "0.5rem",
+        lg: "0.75rem",
+        xl: "1rem",
+        full: "9999px",
       },
       spacing: {
         "space-2xl": "4rem",
