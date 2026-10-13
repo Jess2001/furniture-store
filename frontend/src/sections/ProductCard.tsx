@@ -64,9 +64,9 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   };
 
   return (
-    <article className="group bg-surface-container-lowest border border-surface-variant flex flex-col justify-between transition-all duration-300">
+    <article className="group flex flex-col justify-between">
       <div>
-        <div className="relative aspect-[4/5] bg-surface-container-low overflow-hidden">
+        <div className="relative aspect-[4/5] bg-surface-container-low overflow-hidden rounded-2xl">
           {/* the title below is the accessible link; this one just makes the picture clickable too */}
           <Link
             to={href}
@@ -82,7 +82,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           </Link>
           {product.badge && (
             <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
-              <span className="bg-primary-container text-on-primary font-label-caps text-label-caps uppercase px-2 py-0.5 tracking-wider">
+              <span className="bg-primary-container text-on-primary font-label-caps text-label-caps uppercase px-3 py-1 rounded-full tracking-wider">
                 {product.badge}
               </span>
             </div>
@@ -98,7 +98,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           </button>
         </div>
 
-        <div className="p-4">
+        <div className="pt-4 px-1">
           <div className="flex items-center gap-1.5 mb-1.5">
             <span className={`w-2 h-2 rounded-full ${tone.dot}`} />
             <span
@@ -126,7 +126,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           </div>
 
           {swatches.length > 0 && (
-            <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-surface-variant">
+            <div className="flex items-center gap-1.5 mt-3">
               <span className="font-label-caps text-label-caps text-secondary mr-1">
                 {swatchLabel(product.category.slug)}:
               </span>
@@ -153,7 +153,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           )}
 
           {sizes.length > 0 && (
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-surface-variant">
+            <div className="flex items-center gap-2 mt-3">
               <span className="font-label-caps text-label-caps text-secondary">
                 Size:
               </span>
@@ -170,7 +170,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
                         : `${variant.dimensions} (out of stock)`
                     }
                     onClick={() => setSelectedId(variant.id)}
-                    className={`font-label-caps text-label-caps px-1.5 py-0.5 ${
+                    className={`font-label-caps text-label-caps px-3 py-1 rounded-full ${
                       active
                         ? "bg-on-surface text-on-secondary"
                         : "bg-surface-container text-on-surface"
@@ -185,12 +185,12 @@ export function ProductCard({ product }: { product: ProductCardData }) {
         </div>
       </div>
 
-      <div className="p-4 pt-0">
+      <div className="pt-3 px-1">
         <button
           type="button"
           onClick={addToCart}
           disabled={!canBuy || add.isPending}
-          className="w-full h-11 bg-on-surface text-on-secondary hover:bg-primary transition-colors flex items-center justify-center gap-2 font-label-md text-label-md uppercase tracking-wider disabled:opacity-50 disabled:hover:bg-on-surface"
+          className="w-full h-11 rounded-full bg-on-surface text-on-secondary hover:bg-primary transition-colors flex items-center justify-center gap-2 font-label-md text-label-md uppercase tracking-wider disabled:opacity-50 disabled:hover:bg-on-surface"
         >
           <Icon name="shopping_bag" className="text-[18px]" />
           {canBuy

@@ -255,10 +255,10 @@ describe("layout resilience", () => {
     await within(nav).findByRole("link", { name: "Room 1" });
 
     expect(
-      within(nav).getByRole("link", { name: "Room 6" }),
+      within(nav).getByRole("link", { name: "Room 4" }),
     ).toBeInTheDocument();
     expect(
-      within(nav).queryByRole("link", { name: "Room 7" }),
+      within(nav).queryByRole("link", { name: "Room 5" }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Room 9 \(3\)/ }),

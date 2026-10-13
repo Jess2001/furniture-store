@@ -6,10 +6,9 @@ import { useCategories, useProducts } from "../hooks/useCatalog";
 import { ProductCard } from "./ProductCard";
 
 const chipBase =
-  "px-3.5 py-1.5 font-label-md text-label-md shrink-0 transition-colors";
+  "px-4 py-2 rounded-full font-label-md text-label-md shrink-0 transition-colors";
 const chipActive = `${chipBase} bg-on-surface text-on-secondary`;
-const chipIdle = `${chipBase} bg-surface-container-lowest text-on-surface border border-outline-variant hover:border-on-surface`;
-
+const chipIdle = `${chipBase} bg-surface-container text-on-surface hover:bg-surface-container-high`;
 export function FeaturedPieces() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { data: categories } = useCategories();
@@ -26,7 +25,7 @@ export function FeaturedPieces() {
   return (
     <section
       id="featured-collection"
-      className="w-full bg-surface py-space-2xl border-b border-surface-variant"
+      className="w-full bg-surface-container-low py-space-2xl"
     >
       <div className="max-w-7xl mx-auto px-margin lg:px-margin-desktop">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-space-lg gap-4">
@@ -74,7 +73,7 @@ export function FeaturedPieces() {
         {isError && (
           <div
             role="alert"
-            className="bg-error-container text-on-error-container p-space-md flex items-center justify-between"
+            className="bg-error-container text-on-error-container p-space-md flex items-center justify-between rounded-xl"
           >
             <span className="font-body-sm text-body-sm">
               We could not load the pieces right now.
@@ -95,12 +94,12 @@ export function FeaturedPieces() {
           </p>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10">
           {isLoading &&
             Array.from({ length: 4 }, (_, i) => (
               <div
                 key={i}
-                className="aspect-[4/6] bg-surface-container animate-pulse"
+                className="aspect-[4/6] rounded-2xl bg-surface-container animate-pulse"
                 data-testid="product-skeleton"
               />
             ))}
@@ -112,14 +111,14 @@ export function FeaturedPieces() {
         <div className="mt-space-xl flex justify-center">
           <Link
             to={shopLink}
-            className="inline-flex items-center gap-2 px-space-lg h-12 border border-on-secondary-fixed text-on-secondary-fixed font-label-lg text-label-lg rounded hover:bg-on-secondary-fixed hover:text-surface transition-all duration-200"
+            className="inline-flex items-center gap-2 px-space-lg h-12 border border-on-secondary-fixed text-on-secondary-fixed font-label-lg text-label-lg rounded-full hover:bg-on-secondary-fixed hover:text-surface transition-all duration-200"
           >
             View the full shop{" "}
             <Icon name="arrow_forward" className="text-[18px]" />
           </Link>
         </div>
 
-        <div className="mt-space-xl p-space-lg bg-surface-container-low border border-surface-variant flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="mt-space-xl p-space-lg bg-surface-container-lowest rounded-2xl border border-surface-variant flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <Icon name="architecture" className="text-[24px]" />

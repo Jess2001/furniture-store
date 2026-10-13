@@ -5,13 +5,18 @@ import { designImages } from "../content/images";
 import { useCategories } from "../hooks/useCatalog";
 import { pickImage } from "../lib/format";
 
+// First tile is large (2 columns x 2 rows). With six rooms, the last tile
+// stretches across the row on tablets so there is no orphan.
+function tileSpan(index: number, total: number) {
+  if (index === 0) return "sm:col-span-2 lg:row-span-2";
+  if (total === 6 && index === 5) return "sm:col-span-2 lg:col-span-1";
+  return "";
+}
+
 export function ExploreBySpace() {
   const { data: categories, isLoading, isError, refetch } = useCategories();
   return (
-    <section
-      id="room-categories"
-      className="w-full bg-surface-container-low py-space-2xl border-b border-surface-variant"
-    >
+    <section id="room-categories" className="w-full bg-surface py-space-2xl">
       <div className="max-w-7xl mx-auto px-margin lg:px-margin-desktop">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-space-xl">
           <div>
@@ -31,7 +36,7 @@ export function ExploreBySpace() {
         {isError && (
           <div
             role="alert"
-            className="bg-error-container text-on-error-container p-space-md flex items-center justify-between"
+            className="bg-error-container text-on-error-container p-space-md rounded-xl flex items-center justify-between"
           >
             <span className="font-body-sm text-body-sm">
               We could not load the rooms right now.
@@ -46,50 +51,72 @@ export function ExploreBySpace() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-lg">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 auto-rows-[280px] gap-4 lg:gap-5">
           {isLoading &&
             Array.from({ length: 6 }, (_, i) => (
               <div
                 key={i}
-                className="aspect-[4/3] bg-surface-container animate-pulse"
+                className="rounded-3xl bg-surface-container animate-pulse"
                 data-testid="category-skeleton"
               />
             ))}
 
-          {categories?.map((category) => (
-            <Link
-              key={category.id}
-              to={`/shop?category=${category.slug}`}
-              className="group block text-left bg-surface-container-lowest border border-surface-variant overflow-hidden"
-            >
-              <div className="relative aspect-[4/3] overflow-hidden bg-surface-container">
-                <img
-                  className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                  alt=""
-                  src={pickImage(
-                    category.image_url,
-                    designImages.categories[category.slug],
+          {categories?.map((category, index) => {
+            const image = pickImage(
+              category.image_url,
+              designImages.categories[category.slug],
+            );
+            const large = index === 0;
+            return (
+              <Link
+                key={category.id}
+                to={`/shop?category=${category.slug}`}
+                className={`group relative block overflow-hidden rounded-3xl bg-primary-container ${tileSpan(index, categories.length)}`}
+              >
+                {image && (
+                  <img
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                    alt=""
+                    src={image}
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+
+                {!large && (
+                  <span className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-on-surface opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                    <Icon name="arrow_forward" className="text-[20px]" />
+                  </span>
+                )}
+
+                <div className="absolute inset-x-0 bottom-0 p-6 text-white">
+                  <span className="inline-block rounded-full bg-white/20 backdrop-blur-sm px-3 py-1 font-label-caps text-label-caps uppercase tracking-wider">
+                    {category.product_count}{" "}
+                    {category.product_count === 1 ? "Item" : "Items"}
+                  </span>
+                  <h3
+                    className={`mt-2 drop-shadow ${large ? "font-headline-lg text-headline-lg" : "font-headline-md text-headline-md"}`}
+                  >
+                    {category.name}
+                  </h3>
+                  <p
+                    className={
+                      large
+                        ? "font-body-sm text-body-sm text-white/90 mt-1"
+                        : "sr-only"
+                    }
+                  >
+                    {category.description}
+                  </p>
+                  {large && (
+                    <span className="mt-3 inline-flex items-center gap-1 font-label-md text-label-md font-semibold transition-transform group-hover:translate-x-1">
+                      Shop category{" "}
+                      <Icon name="arrow_forward" className="text-[16px]" />
+                    </span>
                   )}
-                />
-                <span className="absolute top-3 right-3 bg-surface-container-lowest/90 px-2 py-1 font-label-caps text-label-caps uppercase text-on-surface">
-                  {category.product_count}{" "}
-                  {category.product_count === 1 ? "Item" : "Items"}
-                </span>
-              </div>
-              <div className="p-space-md">
-                <h3 className="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors">
-                  {category.name}
-                </h3>
-                <p className="font-body-sm text-body-sm text-secondary mt-1">
-                  {category.description}
-                </p>
-                <span className="inline-flex items-center gap-1 font-label-md text-label-md text-primary font-semibold mt-space-sm group-hover:translate-x-1 transition-transform">
-                  Shop category{" "}
-                  <Icon name="arrow_forward" className="text-[16px]" />
-                </span>
-              </div>
-            </Link>
-          ))}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>

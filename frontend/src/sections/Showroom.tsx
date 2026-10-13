@@ -5,7 +5,7 @@ import { ENQUIRIES_CONNECTED, visitPurposes } from "../content/static";
 import { useUi } from "../hooks/UiContext";
 
 const inputClass =
-  "w-full h-11 px-3 bg-surface-container-lowest border border-outline-variant font-body-sm text-body-sm text-on-surface focus:border-primary outline-none";
+  "w-full h-11 px-3 rounded-xl bg-surface-container-lowest border border-outline-variant font-body-sm text-body-sm text-on-surface focus:border-primary outline-none";
 const labelClass =
   "block font-label-caps text-label-caps uppercase text-secondary mb-1";
 
@@ -30,14 +30,14 @@ export function Showroom() {
   return (
     <section id="showroom-booking" className="w-full bg-surface py-space-3xl">
       <div className="max-w-7xl mx-auto px-margin lg:px-margin-desktop">
-        <div className="bg-surface-container-high border border-surface-variant overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+        <div className="bg-surface-container-high rounded-3xl overflow-hidden grid grid-cols-1 lg:grid-cols-12">
           <div className="lg:col-span-6 relative aspect-[4/3] lg:aspect-auto">
             <img
               className="w-full h-full object-cover"
               alt="The LUXURY Living gallery and workshop in Karen"
               src={designImages.showroom}
             />
-            <div className="absolute top-4 left-4 bg-on-surface text-surface px-3 py-1 font-label-caps text-label-caps uppercase tracking-wider">
+            <div className="absolute top-4 left-4 bg-on-surface text-surface px-3 py-1 rounded-full font-label-caps text-label-caps uppercase tracking-wider">
               Karen Gallery &amp; Workshops
             </div>
           </div>
@@ -125,14 +125,14 @@ export function Showroom() {
                 <div className="flex flex-wrap gap-space-sm pt-space-xs">
                   <button
                     type="submit"
-                    className="h-12 px-space-lg bg-primary-container text-on-primary font-label-lg text-label-lg hover:bg-primary transition-colors"
+                    className="h-12 px-space-lg rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg hover:bg-primary transition-colors"
                   >
                     Book Showroom Visit
                   </button>
                   <button
                     type="button"
                     onClick={() => setPurpose(visitPurposes[2])}
-                    className="h-12 px-space-lg border border-on-secondary-fixed text-on-secondary-fixed font-label-lg text-label-lg hover:bg-on-secondary-fixed hover:text-surface transition-colors"
+                    className="h-12 px-space-lg rounded-full border border-on-secondary-fixed text-on-secondary-fixed font-label-lg text-label-lg hover:bg-on-secondary-fixed hover:text-surface transition-colors"
                   >
                     Request Free Swatches
                   </button>
