@@ -51,7 +51,7 @@ export function Hero() {
       <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/10" />
 
       <div className="relative z-10 w-full px-margin lg:px-margin-desktop py-space-2xl">
-        <div className="max-w-xl flex flex-col space-y-space-md">
+        <div className="max-w-3xl flex flex-col space-y-space-md">
           <div className="inline-flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-primary-fixed-dim" />
             <span className="font-label-caps text-label-caps uppercase text-white font-semibold tracking-widest drop-shadow">
@@ -61,7 +61,7 @@ export function Hero() {
           <h1 className="font-display text-display-mobile lg:text-[72px] lg:leading-[1.05] text-white tracking-tight drop-shadow-lg">
             Furniture made for living.
           </h1>
-          <p className="font-body-lg text-body-lg lg:text-[19px] text-white leading-relaxed drop-shadow">
+          <p className="max-w-xl font-body-lg text-body-lg lg:text-[19px] text-white leading-relaxed drop-shadow">
             Thoughtfully designed solid wood and upholstered pieces for
             comfortable homes, beautiful spaces, and everyday living in East
             Africa.
@@ -80,7 +80,7 @@ export function Hero() {
               Explore Collections
             </a>
           </div>
-          <div className="pt-space-md border-t border-white/30 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="max-w-xl pt-space-md border-t border-white/30 grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               ["forest", "Kiln-dried hardwoods"],
               ["inventory_2", "Made to order & stock"],
