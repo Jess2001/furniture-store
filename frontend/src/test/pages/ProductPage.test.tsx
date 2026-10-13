@@ -2,8 +2,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { tokenStore } from "../lib/api";
-import type { ProductDetail, VariantDetail } from "../lib/types";
+import { tokenStore } from "../../lib/api";
+import type { ProductDetail, VariantDetail } from "../../lib/types";
 import { currentUrl, renderApp } from "../render";
 import { createServer, maraDetail } from "../server";
 
