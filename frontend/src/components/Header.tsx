@@ -8,7 +8,6 @@ import {
 
 import { useAuth } from "../auth/AuthContext";
 import { useCart } from "../cart/useCart";
-import { designImages } from "../content/images";
 import { useCategories } from "../hooks/useCatalog";
 import { useUi } from "../hooks/UiContext";
 import { formatKES } from "../lib/format";
@@ -92,12 +91,12 @@ export function Header() {
           to="/"
           aria-label="Luxury Living home"
         >
-          <img
+          {/* <img
             alt=""
             className="h-8 w-auto object-contain"
             src={designImages.logo}
             onError={(event) => (event.currentTarget.style.display = "none")}
-          />
+          /> */}
           <div className="flex flex-col">
             <span className="font-title text-title tracking-[0.15em] text-on-surface font-semibold uppercase leading-none">
               Luxury
