@@ -12,17 +12,25 @@ const EXT = {
 };
 
 async function download(url) {
+  let lastStatus = "no response";
   for (const candidate of [`${url}=w2400`, url]) {
-    const res = await fetch(candidate);
-    if (res.ok) {
-      const type = (res.headers.get("content-type") ?? "").split(";")[0];
-      return {
-        buffer: Buffer.from(await res.arrayBuffer()),
-        ext: EXT[type] ?? "jpg",
-      };
+    try {
+      const res = await fetch(candidate, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+      });
+      if (res.ok) {
+        const type = (res.headers.get("content-type") ?? "").split(";")[0];
+        return {
+          buffer: Buffer.from(await res.arrayBuffer()),
+          ext: EXT[type] ?? "jpg",
+        };
+      }
+      lastStatus = `HTTP ${res.status}`;
+    } catch (error) {
+      lastStatus = error.message;
     }
   }
-  throw new Error(`Could not download ${url.slice(0, 80)}...`);
+  throw new Error(lastStatus);
 }
 
 const source = await readFile(IMAGES_TS, "utf8");
@@ -42,16 +50,28 @@ for (const match of source.matchAll(urlPattern)) {
 }
 
 let updated = source;
+const failed = [];
+
 for (const { url, name } of jobs) {
   process.stdout.write(`Downloading ${name} ... `);
-  const { buffer, ext } = await download(url);
-  const file = `${name}.${ext}`;
-  await writeFile(`${OUT_DIR}/${file}`, buffer);
-  updated = updated.split(`"${url}"`).join(`"/images/${file}"`);
-  console.log(`${file} (${Math.round(buffer.length / 1024)} KB)`);
+  try {
+    const { buffer, ext } = await download(url);
+    const file = `${name}.${ext}`;
+    await writeFile(`${OUT_DIR}/${file}`, buffer);
+    updated = updated.split(`"${url}"`).join(`"/images/${file}"`);
+    console.log(`${file} (${Math.round(buffer.length / 1024)} KB)`);
+  } catch (error) {
+    failed.push(name);
+    console.log(`FAILED (${error.message})`);
+  }
 }
 
 await writeFile(IMAGES_TS, updated);
 console.log(
-  `\nDone. ${jobs.length} images saved to ${OUT_DIR} and ${IMAGES_TS} updated.`,
+  `\nDone. ${jobs.length - failed.length} of ${jobs.length} images saved to ${OUT_DIR}.`,
 );
+if (failed.length) {
+  console.log(
+    `Still on Stitch links, need replacing by hand: ${failed.join(", ")}`,
+  );
+}
