@@ -307,17 +307,17 @@ The backend will treat **provider callbacks/webhooks as the source of truth** fo
 
 ### Phase 11 — React Frontend
 
-* [ ] React + TypeScript setup
-* [ ] Authentication UI
-* [ ] Product catalogue
-* [ ] Product details
-* [ ] Cart
+* [x] React + TypeScript setup
+* [x] Authentication UI
+* [x] Product catalogue
+* [x] Product details
+* [x] Cart
 * [ ] Wishlist
-* [ ] Checkout
+* [x] Checkout
 * [ ] Payment flow
-* [ ] Customer account
-* [ ] Order tracking
-* [ ] Responsive design
+* [x] Customer account
+* [x] Order tracking
+* [x] Responsive design
 
 ## Database Documentation
 
