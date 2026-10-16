@@ -37,6 +37,8 @@ def mpesa_settings(settings):
     settings.MPESA_PASSKEY = "passkey"
     settings.MPESA_CALLBACK_BASE_URL = "https://shop.example"
     settings.MPESA_CALLBACK_TOKEN = TOKEN
+    # a developer may have the KES 1 test charge on in their own .env; tests must not depend on it
+    settings.MPESA_TEST_AMOUNT = ""
 
 
 @pytest.fixture
@@ -50,6 +52,28 @@ def pushes(monkeypatch):
 
     monkeypatch.setattr(mpesa, "stk_push", fake_push)
     return sent
+
+
+@pytest.fixture(autouse=True)
+def daraja(monkeypatch):
+    """Replace the double-check with Daraja. Set daraja.answer to a verdict, or to an
+    exception to make Daraja unreachable."""
+
+    class Daraja:
+        answer = mpesa.StkVerdict(
+            "success", 0, "The service request is processed successfully."
+        )
+        asked = []
+
+    def fake_query(checkout_request_id):
+        Daraja.asked.append(checkout_request_id)
+        if isinstance(Daraja.answer, Exception):
+            raise Daraja.answer
+        return Daraja.answer
+
+    Daraja.asked = []
+    monkeypatch.setattr(mpesa, "stk_query", fake_query)
+    return Daraja
 
 
 @pytest.fixture
@@ -269,6 +293,51 @@ def test_the_same_callback_twice_changes_nothing_the_second_time(
 
     assert stock_of(order) == (8, 0)
     assert Payment.objects.get().status == Payment.Status.SUCCESS
+
+
+def test_a_success_callback_is_double_checked_with_daraja(
+    api_client, buyer, order, pushes, daraja
+):
+    prompt(buyer[0], order)
+
+    api_client.post(CALLBACK, callback_body("ws_CO_1"), format="json")
+
+    assert daraja.asked == ["ws_CO_1"]
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        mpesa.StkVerdict("failed", 2001, "wrong PIN"),
+        mpesa.StkVerdict("cancelled", 1032, "cancelled"),
+        mpesa.StkVerdict("pending", None, "being processed"),
+        mpesa.MpesaError("down"),
+    ],
+)
+def test_a_callback_daraja_does_not_confirm_releases_nothing(
+    api_client, buyer, order, pushes, daraja, answer
+):
+    prompt(buyer[0], order)
+    daraja.answer = answer
+
+    api_client.post(CALLBACK, callback_body("ws_CO_1"), format="json")
+
+    order.refresh_from_db()
+    assert order.status == "PENDING_PAYMENT"
+    payment = Payment.objects.get()
+    assert payment.status == Payment.Status.PENDING
+    assert payment.raw_callback is not None  # kept, so the receipt is not lost
+    assert stock_of(order) == (10, 2)
+
+
+def test_a_dismissed_prompt_is_not_double_checked(
+    api_client, buyer, order, pushes, daraja
+):
+    prompt(buyer[0], order)
+
+    api_client.post(CALLBACK, callback_body("ws_CO_1", code=1032), format="json")
+
+    assert daraja.asked == []
 
 
 def test_a_dismissed_prompt_leaves_the_order_waiting_and_the_stock_held(

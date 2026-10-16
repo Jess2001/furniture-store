@@ -7,6 +7,7 @@ builds a Daraja request by hand and tests can replace one function.
 import base64
 import logging
 import re
+from dataclasses import dataclass
 from decimal import ROUND_CEILING, Decimal
 
 import requests
@@ -23,6 +24,15 @@ TOKEN_CACHE_KEY = "mpesa_access_token"
 
 class MpesaError(Exception):
     """Safaricom could not be reached, or refused the request."""
+
+
+@dataclass(frozen=True)
+class StkVerdict:
+    """What Daraja says became of one STK push."""
+
+    state: str  # "success" | "cancelled" | "failed" | "pending"
+    code: int | None
+    description: str
 
 
 def _base_url():
@@ -71,15 +81,20 @@ def _access_token():
     return token
 
 
+def _timestamp_and_password():
+    timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
+    password = base64.b64encode(
+        f"{settings.MPESA_SHORTCODE}{settings.MPESA_PASSKEY}{timestamp}".encode()
+    ).decode()
+    return timestamp, password
+
+
 def stk_push(*, phone, amount, reference, description, callback_url):
     """Ask Safaricom to pop the 'enter your PIN' prompt on the customer's phone.
 
     Returns Safaricom's answer; its CheckoutRequestID is how the callback finds us.
     """
-    timestamp = timezone.now().strftime("%Y%m%d%H%M%S")
-    password = base64.b64encode(
-        f"{settings.MPESA_SHORTCODE}{settings.MPESA_PASSKEY}{timestamp}".encode()
-    ).decode()
+    timestamp, password = _timestamp_and_password()
     payload = {
         "BusinessShortCode": settings.MPESA_SHORTCODE,
         "Password": password,
@@ -113,3 +128,47 @@ def stk_push(*, phone, amount, reference, description, callback_url):
             or "M-Pesa did not accept the request. Please try again."
         )
     return data
+
+
+def stk_query(checkout_request_id):
+    """Ask Daraja what became of an STK push.
+
+    This is how we double-check a callback before trusting it, and how we settle
+    payments whose callback never arrived. It does not return the receipt number
+    or the amount, only whether the customer paid.
+    """
+    timestamp, password = _timestamp_and_password()
+    payload = {
+        "BusinessShortCode": settings.MPESA_SHORTCODE,
+        "Password": password,
+        "Timestamp": timestamp,
+        "CheckoutRequestID": checkout_request_id,
+    }
+    try:
+        response = requests.post(
+            f"{_base_url()}/mpesa/stkpushquery/v1/query",
+            json=payload,
+            headers={"Authorization": f"Bearer {_access_token()}"},
+            timeout=TIMEOUT_SECONDS,
+        )
+        data = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        logger.exception("M-Pesa STK query failed")
+        raise MpesaError("We could not reach M-Pesa. Please try again.") from exc
+
+    if "ResultCode" not in data:
+        # While the customer is still deciding, Daraja answers with an error
+        # saying the transaction is being processed. That means "not yet".
+        if (
+            data.get("errorCode") == "500.001.1001"
+            or "being processed" in str(data.get("errorMessage", "")).lower()
+        ):
+            return StkVerdict("pending", None, "Still waiting for the customer.")
+        raise MpesaError(data.get("errorMessage") or "Could not check the payment.")
+
+    try:
+        code = int(data["ResultCode"])
+    except (TypeError, ValueError) as exc:
+        raise MpesaError("M-Pesa sent an answer we could not read.") from exc
+    state = "success" if code == 0 else "cancelled" if code == 1032 else "failed"
+    return StkVerdict(state, code, str(data.get("ResultDesc", "")))

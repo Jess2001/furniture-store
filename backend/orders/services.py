@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.db.models import Exists, OuterRef
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 import logging
@@ -185,11 +186,26 @@ def cancel_order(order):
     return order
 
 
+# A customer may still be typing their M-Pesa PIN when the reservation runs out.
+# Give a fresh prompt this long before the order is cancelled underneath them.
+PAYMENT_IN_FLIGHT_GRACE = timedelta(minutes=5)
+
+
+def _payments_in_flight(now):
+    from django.apps import apps
+
+    Payment = apps.get_model("payments", "Payment")
+    return Payment.objects.filter(
+        status="PENDING", created_at__gte=now - PAYMENT_IN_FLIGHT_GRACE
+    )
+
+
 def stale_orders(now):
-    """Unpaid orders whose reservation window has passed."""
+    """Unpaid orders whose reservation window has passed, unless a payment prompt
+    is still in flight."""
     return Order.objects.filter(
         status=S.PENDING_PAYMENT, reservation_expires_at__lt=now
-    )
+    ).exclude(Exists(_payments_in_flight(now).filter(order=OuterRef("pk"))))
 
 
 @transaction.atomic
@@ -202,6 +218,7 @@ def expire_order(order_id, now=None):
         order.status != S.PENDING_PAYMENT
         or order.reservation_expires_at is None
         or order.reservation_expires_at > now
+        or _payments_in_flight(now).filter(order=order).exists()
     ):
         return False
     release_reservation(order)

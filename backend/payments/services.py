@@ -112,55 +112,21 @@ def initiate_mpesa_payment(order, raw_phone):
     return payment
 
 
-@transaction.atomic
-def record_mpesa_result(callback):
-    """Apply Safaricom's verdict on one STK push. Safe to call twice for the same callback."""
-    body = (callback.get("Body") or {}).get("stkCallback") or {}
-    checkout_id = body.get("CheckoutRequestID", "")
-    payment = (
-        Payment.objects.select_for_update()
-        .filter(provider=Payment.Provider.MPESA, checkout_request_id=checkout_id)
-        .first()
-        if checkout_id
-        else None
-    )
-    if payment is None:
-        logger.warning("M-Pesa callback for an unknown request: %s", checkout_id)
-        return None
-    if payment.status != Payment.Status.PENDING:
-        return payment  # Safaricom retried, or we already handled it
+def _receipt_from(raw_callback):
+    """The M-Pesa receipt number inside a stored callback, if there is one."""
+    stk = ((raw_callback or {}).get("Body") or {}).get("stkCallback") or {}
+    items = (stk.get("CallbackMetadata") or {}).get("Item") or []
+    for item in items:
+        if item.get("Name") == "MpesaReceiptNumber":
+            return str(item.get("Value", ""))
+    return ""
 
-    payment.raw_callback = callback
+
+def _settle_as_paid(payment, receipt):
+    """Daraja has confirmed the money arrived. Call inside a transaction, with the
+    payment row locked."""
+    payment.provider_transaction_id = receipt
     payment.completed_at = timezone.now()
-
-    if body.get("ResultCode") != 0:
-        # 1032 means the customer dismissed the prompt; anything else is a failure
-        payment.status = (
-            Payment.Status.CANCELLED
-            if body.get("ResultCode") == 1032
-            else Payment.Status.FAILED
-        )
-        payment.failure_reason = body.get("ResultDesc", "")[:500]
-        payment.save()
-        return payment
-
-    items = (body.get("CallbackMetadata") or {}).get("Item") or []
-    details = {item.get("Name"): item.get("Value") for item in items}
-    paid = Decimal(str(details.get("Amount", 0)))
-    payment.provider_transaction_id = str(details.get("MpesaReceiptNumber", ""))
-
-    if paid < payment.amount:
-        payment.status = Payment.Status.FAILED
-        payment.failure_reason = (
-            f"Received {paid} but {payment.amount} was due "
-            f"(receipt {payment.provider_transaction_id}). Needs manual review."
-        )
-        payment.save()
-        logger.error(
-            "M-Pesa underpayment on %s: %s", payment.pk, payment.failure_reason
-        )
-        return payment
-
     order = Order.objects.select_for_update().get(pk=payment.order_id)
     if order.status == S.PENDING_PAYMENT:
         payment.status = Payment.Status.SUCCESS
@@ -171,9 +137,170 @@ def record_mpesa_result(callback):
         # record and flag it, so someone refunds it.
         payment.status = Payment.Status.REFUND_PENDING
         payment.failure_reason = (
-            f"Paid (receipt {payment.provider_transaction_id}) after the order was "
+            f"Paid (receipt {receipt or 'unknown'}) after the order was "
             f"{order.status}. Refund required."
         )
         logger.error("M-Pesa payment %s needs a refund", payment.pk)
     payment.save()
-    return payment
+
+
+def record_mpesa_result(callback):
+    """Apply Safaricom's callback for one STK push. Safe to call twice for the same one.
+
+    A callback that claims success is double-checked with Daraja before we trust
+    it: callbacks are unsigned, so the claim alone must not release a customer's
+    furniture. If Daraja cannot confirm it right now, the callback is kept and
+    reconcile_pending_payments settles it later.
+    """
+    body = (callback.get("Body") or {}).get("stkCallback") or {}
+    checkout_id = body.get("CheckoutRequestID", "")
+    claims_success = body.get("ResultCode") == 0
+
+    verdict = None
+    if claims_success and checkout_id:
+        try:
+            verdict = mpesa.stk_query(checkout_id)  # outside any database lock
+        except mpesa.MpesaError:
+            logger.warning("Could not confirm callback for %s with Daraja", checkout_id)
+
+    with transaction.atomic():
+        payment = (
+            Payment.objects.select_for_update()
+            .filter(provider=Payment.Provider.MPESA, checkout_request_id=checkout_id)
+            .first()
+            if checkout_id
+            else None
+        )
+        if payment is None:
+            logger.warning("M-Pesa callback for an unknown request: %s", checkout_id)
+            return None
+        if payment.status != Payment.Status.PENDING:
+            return payment  # Safaricom retried, or we already handled it
+
+        payment.raw_callback = callback
+
+        if not claims_success:
+            # 1032 means the customer dismissed the prompt; anything else is a failure
+            payment.status = (
+                Payment.Status.CANCELLED
+                if body.get("ResultCode") == 1032
+                else Payment.Status.FAILED
+            )
+            payment.failure_reason = str(body.get("ResultDesc", ""))[:500]
+            payment.completed_at = timezone.now()
+            payment.save()
+            return payment
+
+        details = {
+            item.get("Name"): item.get("Value")
+            for item in (body.get("CallbackMetadata") or {}).get("Item") or []
+        }
+        paid = Decimal(str(details.get("Amount", 0)))
+        receipt = str(details.get("MpesaReceiptNumber", ""))
+
+        if paid < payment.amount:
+            payment.status = Payment.Status.FAILED
+            payment.provider_transaction_id = receipt
+            payment.completed_at = timezone.now()
+            payment.failure_reason = (
+                f"Received {paid} but {payment.amount} was due "
+                f"(receipt {receipt}). Needs manual review."
+            )
+            payment.save()
+            logger.error(
+                "M-Pesa underpayment on %s: %s", payment.pk, payment.failure_reason
+            )
+            return payment
+
+        if verdict is None or verdict.state != "success":
+            # Not confirmed (yet). Keep the callback; the reconciler will settle it.
+            payment.save(update_fields=["raw_callback", "updated_at"])
+            logger.warning(
+                "Callback says paid but Daraja says %s for %s; leaving it pending",
+                verdict.state if verdict else "unreachable",
+                checkout_id,
+            )
+            return payment
+
+        _settle_as_paid(payment, receipt)
+        return payment
+
+
+def reconcile_payment(payment_id):
+    """Ask Daraja about one pending payment and settle it. Returns the outcome word:
+    'paid', 'refund', 'failed', 'cancelled', 'still pending' or 'error'."""
+    payment = Payment.objects.get(pk=payment_id)
+    try:
+        verdict = mpesa.stk_query(payment.checkout_request_id)  # outside the lock
+    except mpesa.MpesaError:
+        return "error"
+
+    if verdict.state == "pending":
+        return "still pending"
+
+    with transaction.atomic():
+        payment = Payment.objects.select_for_update().get(pk=payment_id)
+        if payment.status != Payment.Status.PENDING:
+            return "still pending"  # a callback settled it while we were asking
+
+        if verdict.state == "success":
+            receipt = _receipt_from(payment.raw_callback)
+            if not receipt:
+                logger.warning(
+                    "Payment %s is paid but has no receipt number; check the M-Pesa statement",
+                    payment.pk,
+                )
+            _settle_as_paid(payment, receipt)
+            return "paid" if payment.status == Payment.Status.SUCCESS else "refund"
+
+        payment.status = (
+            Payment.Status.CANCELLED
+            if verdict.state == "cancelled"
+            else Payment.Status.FAILED
+        )
+        payment.failure_reason = verdict.description[:500]
+        payment.completed_at = timezone.now()
+        payment.save()
+        return verdict.state
+
+
+def reconcile_pending_payments(
+    *, min_age=timedelta(seconds=90), max_age=timedelta(hours=48), limit=50
+):
+    """Settle M-Pesa payments whose callback never arrived. Returns a count per outcome."""
+    now = timezone.now()
+    pending = Payment.objects.filter(
+        provider=Payment.Provider.MPESA,
+        status=Payment.Status.PENDING,
+        created_at__lte=now - min_age,
+        created_at__gte=now - max_age,
+    ).order_by("created_at")
+
+    counts = {}
+
+    def tally(outcome):
+        counts[outcome] = counts.get(outcome, 0) + 1
+
+    # A prompt that never got a request id from Safaricom cannot be queried, and
+    # nothing is coming for it: close it once it is clearly dead.
+    orphans = pending.filter(
+        checkout_request_id="", created_at__lte=now - timedelta(minutes=5)
+    )
+    closed = orphans.update(
+        status=Payment.Status.FAILED,
+        failure_reason="The prompt was never sent to M-Pesa.",
+        completed_at=now,
+    )
+    if closed:
+        counts["failed"] = closed
+
+    ids = list(
+        pending.exclude(checkout_request_id="").values_list("pk", flat=True)[:limit]
+    )
+    for payment_id in ids:
+        try:
+            tally(reconcile_payment(payment_id))
+        except Exception:
+            logger.exception("Could not reconcile payment %s", payment_id)
+            tally("error")
+    return counts
