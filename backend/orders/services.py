@@ -147,6 +147,25 @@ def release_reservation(order):
         inventory.save(update_fields=["reserved_quantity", "updated_at"])
 
 
+def commit_reservation(order):
+    """The order is paid, so its reserved stock is now sold: take it off the shelf.
+    Call inside a transaction."""
+    items = list(order.items.filter(variant__isnull=False))
+    inventories = {
+        inv.variant_id: inv
+        for inv in Inventory.objects.select_for_update()
+        .filter(variant_id__in=[item.variant_id for item in items])
+        .order_by("variant_id")
+    }
+    for item in items:
+        inventory = inventories.get(item.variant_id)
+        if inventory is None:
+            continue
+        inventory.quantity -= item.quantity
+        inventory.reserved_quantity -= item.quantity
+        inventory.save(update_fields=["quantity", "reserved_quantity", "updated_at"])
+
+
 @transaction.atomic
 def cancel_order(order):
     """Customer cancellation. Only orders still waiting for payment qualify."""

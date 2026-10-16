@@ -72,7 +72,15 @@ class Payment(models.Model):
     failure_reason = models.TextField(
         blank=True,
     )
+    phone = models.CharField(max_length=20, blank=True)
 
+    checkout_request_id = models.CharField(
+        max_length=100,
+        blank=True,
+        db_index=True,
+    )
+
+    raw_callback = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
