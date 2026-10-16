@@ -130,3 +130,75 @@ export interface ProductDetail {
   stock_status: StockStatus;
   low_stock_count: number | null;
 }
+export interface CheckoutPayload {
+  recipient_name: string;
+  recipient_phone: string;
+  address_line_1: string;
+  address_line_2?: string;
+  city: string;
+  county: string;
+  postal_code?: string;
+  /** The subtotal the shopper saw; the backend rejects the order if prices changed since. */
+  expected_subtotal?: string;
+}
+
+export interface OrderItem {
+  id: string;
+  product_name: string;
+  variant_name: string;
+  sku: string;
+  quantity: number;
+  unit_price: string;
+  line_total: string;
+}
+
+export interface Order {
+  id: string;
+  order_number: string;
+  status: string;
+  currency: string;
+  subtotal: string;
+  shipping_fee: string;
+  total_amount: string;
+  can_cancel?: boolean;
+  shipping_address: {
+    recipient_name: string;
+    recipient_phone: string;
+    address_line_1: string;
+    address_line_2: string;
+    city: string;
+    county: string;
+    postal_code: string;
+    country: string;
+  };
+  items: OrderItem[];
+  reservation_expires_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  payment: OrderPayment | null;
+}
+export interface OrderListItem {
+  id: string;
+  order_number: string;
+  status: string;
+  currency: string;
+  total_amount: string;
+  item_count: number;
+  can_cancel: boolean;
+  created_at: string;
+}
+
+export interface OrderPayment {
+  status:
+    | "PENDING"
+    | "SUCCESS"
+    | "FAILED"
+    | "CANCELLED"
+    | "REFUND_PENDING"
+    | "REFUNDED";
+  method: string;
+  /** The M-Pesa receipt number once paid. */
+  receipt: string;
+  failure_reason: string;
+  created_at: string;
+}

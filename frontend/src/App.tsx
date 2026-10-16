@@ -9,7 +9,8 @@ import { HomePage } from "./pages/HomePage";
 import { ProductPage } from "./pages/ProductPages";
 import { ShopPage } from "./pages/ShopPage";
 import { Footer } from "./sections/Footer";
-
+import { CheckoutPage } from "./pages/CheckoutPage";
+import { OrderConfirmationPage } from "./pages/OrderConfirmationPage";
 function NotFound() {
   return (
     <div className="max-w-7xl mx-auto px-margin lg:px-margin-desktop py-space-3xl text-center space-y-space-md">
@@ -39,6 +40,11 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/product/:slug" element={<ProductPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route
+            path="/order/:orderNumber"
+            element={<OrderConfirmationPage />}
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
