@@ -190,7 +190,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           type="button"
           onClick={addToCart}
           disabled={!canBuy || add.isPending}
-          className="w-full h-11 rounded-full bg-on-surface text-on-secondary hover:bg-primary transition-colors flex items-center justify-center gap-2 font-label-md text-label-md uppercase tracking-wider disabled:opacity-50 disabled:hover:bg-on-surface"
+          className="w-full h-11 rounded-full border border-on-surface text-on-surface hover:bg-on-surface hover:text-on-secondary transition-colors flex items-center justify-center gap-2 font-label-md text-label-md uppercase tracking-wider disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-on-surface"
         >
           <Icon name="shopping_bag" className="text-[18px]" />
           {canBuy

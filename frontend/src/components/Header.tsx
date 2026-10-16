@@ -47,7 +47,7 @@ export function Header() {
   const onCartClick = () => (user ? setCartOpen(true) : openAuth());
 
   const cartLabel =
-    user && cart
+    user && cart && cart.item_count > 0
       ? `Cart (${cart.item_count}) — ${formatKES(cart.subtotal)}`
       : "Cart";
   const initials = user
@@ -176,7 +176,7 @@ export function Header() {
           <button
             type="button"
             disabled
-            aria-label="Wishlist (coming soon)"
+            aria-label="Wishlist"
             title="Wishlist is coming soon"
             className={`${iconButton} opacity-60`}
           >

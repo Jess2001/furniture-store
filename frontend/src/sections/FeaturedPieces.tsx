@@ -9,6 +9,7 @@ const chipBase =
   "px-4 py-2 rounded-full font-label-md text-label-md shrink-0 transition-colors";
 const chipActive = `${chipBase} bg-on-surface text-on-secondary`;
 const chipIdle = `${chipBase} bg-surface-container text-on-surface hover:bg-surface-container-high`;
+
 export function FeaturedPieces() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { data: categories } = useCategories();
@@ -28,21 +29,19 @@ export function FeaturedPieces() {
       className="w-full bg-surface-container-low py-space-2xl"
     >
       <div className="max-w-7xl mx-auto px-margin lg:px-margin-desktop">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-space-lg gap-4">
-          <div>
-            <span className="font-label-caps text-label-caps uppercase tracking-widest text-primary font-semibold">
-              Crafted in Karen
-            </span>
-            <h2 className="font-headline-lg text-headline-lg text-on-surface mt-1">
-              Featured Pieces
-            </h2>
-            <p className="font-body-sm text-body-sm text-secondary">
-              Handcrafted essentials ready for your space.
-            </p>
-          </div>
+        <div className="pb-space-lg">
+          <span className="font-label-caps text-label-caps uppercase tracking-widest text-primary font-semibold">
+            Crafted in Karen
+          </span>
+          <h2 className="font-headline-lg text-headline-lg text-on-surface mt-1">
+            Featured Pieces
+          </h2>
+          <p className="font-body-md text-body-md text-secondary mt-1">
+            Handcrafted essentials ready for your space.
+          </p>
 
           <div
-            className="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0"
+            className="flex items-center gap-2 overflow-x-auto pt-space-md pb-1"
             role="group"
             aria-label="Filter by room"
           >
@@ -73,7 +72,7 @@ export function FeaturedPieces() {
         {isError && (
           <div
             role="alert"
-            className="bg-error-container text-on-error-container p-space-md flex items-center justify-between rounded-xl"
+            className="bg-error-container text-on-error-container p-space-md rounded-xl flex items-center justify-between"
           >
             <span className="font-body-sm text-body-sm">
               We could not load the pieces right now.
@@ -111,14 +110,14 @@ export function FeaturedPieces() {
         <div className="mt-space-xl flex justify-center">
           <Link
             to={shopLink}
-            className="inline-flex items-center gap-2 px-space-lg h-12 border border-on-secondary-fixed text-on-secondary-fixed font-label-lg text-label-lg rounded-full hover:bg-on-secondary-fixed hover:text-surface transition-all duration-200"
+            className="inline-flex items-center gap-2 px-space-lg h-12 rounded-full bg-on-surface text-on-secondary font-label-lg text-label-lg hover:bg-primary transition-colors duration-200"
           >
             View the full shop{" "}
             <Icon name="arrow_forward" className="text-[18px]" />
           </Link>
         </div>
 
-        <div className="mt-space-xl p-space-lg bg-surface-container-lowest rounded-2xl border border-surface-variant flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="mt-space-xl p-space-lg bg-surface-container-lowest rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <Icon name="architecture" className="text-[24px]" />

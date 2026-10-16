@@ -18,7 +18,7 @@ export const designImages = {
       "/images/naivasha-teak-dining-table-8-seater.jpg",
     "ol-pejeta-woven-rattan-armchair":
       "/images/ol-pejeta-woven-rattan-armchair.jpg",
-    "baringo-platform-bed-stands": "/images/baringo-platform-bed-stands.jpg",
+    "baringo-platform-bed-stands": "/images/baringo-bed.jpg",
   } as Record<string, string>,
   craft: [
     "/images/craft-1.jpg",
