@@ -1,12 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { useAuth } from "../auth/AuthContext";
+import { useCartActions } from "../cart/useCart";
 import { Icon } from "../components/Icon";
 import { designImages } from "../content/images";
 import { useProduct } from "../hooks/useCatalog";
-import { ApiError } from "../lib/api";
+import { useUi } from "../hooks/UiContext";
+import { ApiError, errorMessage } from "../lib/api";
 import { formatKES, pickImage, stockLabel } from "../lib/format";
 import type { ProductDetail } from "../lib/types";
+import {
+  ATTRS,
+  choose,
+  hexFor,
+  maxQuantity,
+  resolveVariant,
+  selectionOf,
+  valueInStock,
+  optionGroups,
+  type OptionGroup,
+  type Selection,
+} from "../product/variants";
 
 const section = "w-full px-margin md:px-margin-tablet lg:px-margin-desktop";
 const inner = "max-w-7xl mx-auto";
@@ -88,16 +103,65 @@ export function ProductPage() {
     );
   }
 
-  return <ProductView product={product} />;
+  return <ProductView key={product.id} product={product} />;
 }
 
 function ProductView({ product }: { product: ProductDetail }) {
+  const { user, openAuth } = useAuth();
+  const { setCartOpen, showToast } = useUi();
+  const { add } = useCartActions();
+
   // variants arrive cheapest first, so the first is the default until the shopper chooses
-  const variant = product.variants[0];
-  const stock = stockLabel(product.stock_status, product.low_stock_count);
+  const groups = useMemo(
+    () => optionGroups(product.variants),
+    [product.variants],
+  );
+  const [selection, setSelection] = useState<Selection>(() =>
+    product.variants[0] ? selectionOf(product.variants[0], groups) : {},
+  );
+  const [quantity, setQuantity] = useState(1);
+
+  const variant =
+    resolveVariant(product.variants, selection) ?? product.variants[0];
+  const limit = maxQuantity(variant);
+  const qty = Math.min(quantity, limit); // switching to an option with less stock lowers the count
+  const stock = variant
+    ? stockLabel(variant.stock_status, variant.low_stock_count)
+    : stockLabel(product.stock_status, product.low_stock_count);
   const savings = variant?.compare_at_price
     ? Number(variant.compare_at_price) - Number(variant.price)
     : 0;
+  const total = variant ? Number(variant.price) * qty : 0;
+  const canBuy = Boolean(variant?.in_stock);
+
+  // attributes that do not differ between variants are facts about the piece, not choices
+  const facts = ATTRS.filter(
+    ({ key }) => !groups.some((g) => g.attr === key) && variant?.[key],
+  ).map(({ label, key }) => [label, variant![key]]);
+
+  const pick = (attr: OptionGroup["attr"], value: string) =>
+    setSelection((current) =>
+      choose(product.variants, groups, current, attr, value),
+    );
+
+  const addToCart = () => {
+    if (!variant) return;
+    if (!user) {
+      showToast("Sign in to add pieces to your cart.");
+      openAuth();
+      return;
+    }
+    add.mutate(
+      { variantId: variant.id, quantity: qty },
+      {
+        onSuccess: () => {
+          showToast(`${product.name} added to your cart.`);
+          setCartOpen(true);
+        },
+        onError: (error) => showToast(errorMessage(error)),
+      },
+    );
+  };
 
   return (
     <div className="flex flex-col w-full">
@@ -228,9 +292,185 @@ function ProductView({ product }: { product: ProductDetail }) {
                 {product.description}
               </p>
             )}
+
+            {facts.length > 0 && (
+              <dl className="flex flex-wrap gap-x-space-lg gap-y-space-2xs mb-space-md font-body-sm text-body-sm">
+                {facts.map(([label, value]) => (
+                  <div key={label} className="flex gap-space-2xs">
+                    <dt className="text-secondary">{label}:</dt>
+                    <dd className="text-on-surface font-semibold">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+
+            {groups.map((group, index) => (
+              <OptionPicker
+                key={group.attr}
+                step={index + 1}
+                group={group}
+                selected={selection[group.attr]}
+                variants={product.variants}
+                onPick={(value) => pick(group.attr, value)}
+              />
+            ))}
+
+            <div className="flex flex-col gap-space-sm mb-space-lg">
+              <div className="flex items-center gap-space-md">
+                <div
+                  className="flex items-center bg-surface-container-lowest rounded-lg shadow-sm p-1"
+                  role="group"
+                  aria-label="Quantity"
+                >
+                  <button
+                    type="button"
+                    aria-label="Decrease quantity"
+                    disabled={qty <= 1}
+                    onClick={() => setQuantity(qty - 1)}
+                    className="w-10 h-10 flex items-center justify-center text-on-surface hover:bg-surface-container-high rounded text-lg font-bold transition-colors disabled:opacity-40"
+                  >
+                    −
+                  </button>
+                  <span
+                    className="w-12 text-center font-currency-price text-currency-price font-semibold text-on-surface"
+                    aria-live="polite"
+                    data-testid="quantity"
+                  >
+                    {qty}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Increase quantity"
+                    disabled={qty >= limit}
+                    onClick={() => setQuantity(qty + 1)}
+                    className="w-10 h-10 flex items-center justify-center text-on-surface hover:bg-surface-container-high rounded text-lg font-bold transition-colors disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                </div>
+                {variant?.stock_status === "low_stock" &&
+                  variant.low_stock_count !== null && (
+                    <div className="flex items-center gap-space-2xs text-tertiary font-body-sm text-body-sm">
+                      <Icon name="bolt" className="text-[18px]" />
+                      <span>
+                        Only {variant.low_stock_count} left of this option
+                      </span>
+                    </div>
+                  )}
+              </div>
+
+              <button
+                type="button"
+                onClick={addToCart}
+                disabled={!canBuy || add.isPending}
+                className="w-full bg-inverse-surface hover:bg-on-surface text-inverse-on-surface py-3.5 px-space-md rounded-full font-label-lg text-label-lg flex items-center justify-center gap-space-xs shadow-md transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                <Icon name="shopping_bag" className="text-[20px]" />
+                <span>
+                  {canBuy
+                    ? add.isPending
+                      ? "Adding…"
+                      : `Add to Order — ${formatKES(total)}`
+                    : "Out of Stock"}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+interface OptionPickerProps {
+  step: number;
+  group: OptionGroup;
+  selected: string | undefined;
+  variants: ProductDetail["variants"];
+  onPick: (value: string) => void;
+}
+
+function OptionPicker({
+  step,
+  group,
+  selected,
+  variants,
+  onPick,
+}: OptionPickerProps) {
+  const isColor = group.attr === "color";
+  return (
+    <div className="mb-space-md">
+      <div className="flex items-center justify-between mb-space-xs">
+        <span
+          className="font-label-lg text-label-lg text-on-surface"
+          id={`option-${group.attr}`}
+        >
+          {step}. {group.label}
+        </span>
+        <span className="font-label-md text-label-md text-primary font-medium">
+          {selected}
+        </span>
+      </div>
+      <div
+        role="radiogroup"
+        aria-labelledby={`option-${group.attr}`}
+        className={
+          isColor
+            ? "flex items-center gap-space-sm flex-wrap"
+            : "grid grid-cols-1 sm:grid-cols-3 gap-space-xs"
+        }
+      >
+        {group.values.map((value) => {
+          const on = value === selected;
+          const inStock = valueInStock(variants, group.attr, value);
+          const hex = isColor ? hexFor(variants, value) : "";
+          const label = inStock ? value : `${value} (out of stock)`;
+
+          if (isColor && hex) {
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                aria-label={label}
+                title={label}
+                onClick={() => onPick(value)}
+                className={`relative p-0.5 rounded-full focus:outline-none transition-transform hover:scale-110 ${on ? "ring-2 ring-primary" : "ring-1 ring-outline-variant"} ${inStock ? "" : "opacity-50"}`}
+              >
+                <span
+                  className="block w-9 h-9 rounded-full shadow-sm"
+                  style={{ backgroundColor: hex }}
+                />
+                {!inStock && (
+                  <span
+                    className="absolute inset-0 flex items-center justify-center text-on-surface text-lg"
+                    aria-hidden="true"
+                  >
+                    /
+                  </span>
+                )}
+              </button>
+            );
+          }
+          return (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              aria-label={label}
+              title={label}
+              onClick={() => onPick(value)}
+              className={`p-space-xs rounded-xl bg-surface-container-lowest text-left shadow-sm font-label-md text-label-md text-on-surface font-semibold transition-all ${
+                on ? "ring-2 ring-primary" : "opacity-80 hover:opacity-100"
+              } ${inStock ? "" : "line-through opacity-60"}`}
+            >
+              {value}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

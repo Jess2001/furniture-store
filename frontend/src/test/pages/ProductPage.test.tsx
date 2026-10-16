@@ -116,7 +116,9 @@ describe("the gallery", () => {
     const images = [{ ...maraDetail.images[0], image_url: "https://placehold.co/800x1000" }];
     await openMara({ details: { [maraDetail.slug]: { ...maraDetail, images } } });
 
-    expect(screen.getByTestId("main-image").getAttribute("src")).toContain("googleusercontent");
+    expect(screen.getByTestId("main-image").getAttribute("src")).toContain(
+      "/images/mara-3-seater-linen-sofa",
+    );
   });
 
   it("shows no thumbnail strip for a single picture", async () => {
